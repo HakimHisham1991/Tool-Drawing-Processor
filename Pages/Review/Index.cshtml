@@ -1,0 +1,233 @@
+@page "{id:int}"
+@model ToolDrawingProcessor.Pages.Review.IndexModel
+@{
+    ViewData["Title"] = $"Review - {Model.File?.FileName}";
+}
+
+@if (Model.File == null)
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>File not found.
+    </div>
+    return;
+}
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert alert-@(Model.IsError ? "danger" : "success") alert-dismissible fade show">
+        <i class="bi bi-@(Model.IsError ? "exclamation-triangle" : "check-circle") me-2"></i>
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">
+        <i class="bi bi-file-earmark-pdf text-danger me-2"></i>@Model.File.FileName
+    </h4>
+    <div>
+        <a asp-page="/Processing/Index" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Back to Queue
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- LEFT PANEL: PDF Preview -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-pdf me-2"></i>PDF Preview</span>
+                <div>
+                    <button class="btn btn-sm btn-outline-light" onclick="prevPage()">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="mx-2 small" id="pageInfo">Page 1</span>
+                    <button class="btn btn-sm btn-outline-light" onclick="nextPage()">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-light ms-2" onclick="zoomIn()">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="zoomOut()">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0 bg-secondary" style="min-height: 600px; overflow: auto;" id="pdfContainer">
+                <canvas id="pdfCanvas" class="d-block mx-auto"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: Editable Data Preview -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-pencil-square me-2"></i>Extracted Data (Editable)
+                <span class="badge bg-@(Model.Spec!.OverallConfidence >= 0.85 ? "success" : Model.Spec.OverallConfidence >= 0.6 ? "warning" : "danger") ms-2">
+                    Confidence: @Model.Spec.OverallConfidence.ToString("P0")
+                </span>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Accept">
+                    <input type="hidden" name="fileId" value="@Model.File.Id" />
+
+                    <!-- Tool Type -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            Tool Type
+                            <span class="badge bg-@ConfBadge(Model.AIResult?.ToolType.Confidence ?? 0) ms-1">
+                                @((Model.AIResult?.ToolType.Confidence ?? 0).ToString("P0"))
+                            </span>
+                        </label>
+                        <select name="toolType" class="form-select">
+                            @foreach (var tt in new[] { "Endmill", "Ball Nose", "Drill", "Reamer", "Chamfer Mill", "Face Mill", "Tap", "Boring Bar", "Insert", "Unknown" })
+                            {
+                                <option value="@tt" selected="@(Model.Spec.ToolType == tt)">@tt</option>
+                            }
+                        </select>
+                        <small class="text-muted">
+                            AI suggested: <strong>@(Model.AIResult?.ToolType.Value ?? "N/A")</strong>
+                        </small>
+                    </div>
+
+                    <!-- Numeric Fields -->
+                    @{ var fields = new (string Name, string Label, double? Value, double? AIValue, double Confidence)[]
+                        {
+                            ("diameter", "Diameter (mm)", Model.Spec.Diameter, Model.AIResult?.Diameter.Value, Model.AIResult?.Diameter.Confidence ?? 0),
+                            ("fluteLength", "Flute Length (mm)", Model.Spec.FluteLength, Model.AIResult?.FluteLength.Value, Model.AIResult?.FluteLength.Confidence ?? 0),
+                            ("cornerRadius", "Corner Radius (mm)", Model.Spec.CornerRadius, Model.AIResult?.CornerRadius.Value, Model.AIResult?.CornerRadius.Confidence ?? 0),
+                            ("shankDiameter", "Shank Diameter (mm)", Model.Spec.ShankDiameter, Model.AIResult?.ShankDiameter.Value, Model.AIResult?.ShankDiameter.Confidence ?? 0),
+                            ("totalLength", "Total Length (mm)", Model.Spec.TotalLength, Model.AIResult?.TotalLength.Value, Model.AIResult?.TotalLength.Confidence ?? 0),
+                        };
+                    }
+
+                    @foreach (var field in fields)
+                    {
+                        <div class="mb-3 @(field.Confidence < 0.6 ? "border-start border-3 border-danger ps-2" : "")">
+                            <label class="form-label fw-bold">
+                                @field.Label
+                                <span class="badge bg-@ConfBadge(field.Confidence) ms-1">
+                                    @field.Confidence.ToString("P0")
+                                </span>
+                                @if (field.Confidence < 0.6)
+                                {
+                                    <i class="bi bi-exclamation-triangle text-danger ms-1" title="Low confidence - please verify"></i>
+                                }
+                            </label>
+                            <input type="number" step="0.001" name="@field.Name"
+                                   value="@field.Value" class="form-control"
+                                   placeholder="Enter value..." />
+                            <small class="text-muted">
+                                AI suggested: <strong>@(field.AIValue?.ToString("F3") ?? "N/A")</strong>
+                            </small>
+                        </div>
+                    }
+
+                    <!-- Number of Flutes -->
+                    <div class="mb-3 @((Model.AIResult?.NumberOfFlutes.Confidence ?? 0) < 0.6 ? "border-start border-3 border-danger ps-2" : "")">
+                        <label class="form-label fw-bold">
+                            Number of Flutes
+                            <span class="badge bg-@ConfBadge(Model.AIResult?.NumberOfFlutes.Confidence ?? 0) ms-1">
+                                @((Model.AIResult?.NumberOfFlutes.Confidence ?? 0).ToString("P0"))
+                            </span>
+                        </label>
+                        <input type="number" step="1" name="numberOfFlutes"
+                               value="@Model.Spec.NumberOfFlutes" class="form-control"
+                               placeholder="Enter value..." />
+                        <small class="text-muted">
+                            AI suggested: <strong>@(Model.AIResult?.NumberOfFlutes.Value?.ToString() ?? "N/A")</strong>
+                        </small>
+                    </div>
+
+                    <hr />
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success btn-lg flex-grow-1">
+                            <i class="bi bi-check-circle me-2"></i>Accept & Save
+                        </button>
+                        <button type="reset" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                        </button>
+                    </div>
+
+                    <div class="mt-2 text-center text-muted small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Corrections will be saved as training data for AI improvement.
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- AI Info Card -->
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-light">
+                <i class="bi bi-robot me-2"></i>AI Extraction Info
+            </div>
+            <div class="card-body small">
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Provider:</strong> @Model.Spec.AIProviderUsed
+                    </div>
+                    <div class="col-6">
+                        <strong>Model:</strong> @Model.Spec.ModelUsed
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string ConfBadge(double confidence)
+    {
+        if (confidence >= 0.85) return "success";
+        if (confidence >= 0.6) return "warning text-dark";
+        return "danger";
+    }
+}
+
+@section Scripts {
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
+<script type="module">
+    import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+
+    const pdfUrl = '/uploads/@System.IO.Path.GetFileName(Model.File.FilePath)';
+    let pdfDoc = null;
+    let currentPage = 1;
+    let scale = 1.5;
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+
+    async function loadPdf() {
+        try {
+            pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+            document.getElementById('pageInfo').textContent = `Page 1 of ${pdfDoc.numPages}`;
+            renderPage(1);
+        } catch (err) {
+            console.error('PDF load error:', err);
+            document.getElementById('pdfContainer').innerHTML =
+                '<div class="text-center text-white p-5"><i class="bi bi-exclamation-triangle display-1 d-block mb-3"></i><p>Could not load PDF preview</p></div>';
+        }
+    }
+
+    async function renderPage(num) {
+        const page = await pdfDoc.getPage(num);
+        const viewport = page.getViewport({ scale });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        document.getElementById('pageInfo').textContent = `Page ${num} of ${pdfDoc.numPages}`;
+    }
+
+    window.prevPage = () => { if (currentPage > 1) renderPage(--currentPage); };
+    window.nextPage = () => { if (pdfDoc && currentPage < pdfDoc.numPages) renderPage(++currentPage); };
+    window.zoomIn = () => { scale += 0.25; renderPage(currentPage); };
+    window.zoomOut = () => { if (scale > 0.5) { scale -= 0.25; renderPage(currentPage); } };
+
+    loadPdf();
+</script>
+}

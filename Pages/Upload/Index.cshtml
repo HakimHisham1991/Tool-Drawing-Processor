@@ -1,0 +1,157 @@
+@page
+@model ToolDrawingProcessor.Pages.Upload.IndexModel
+@{
+    ViewData["Title"] = "Upload PDF Drawings";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-cloud-upload me-2"></i>Upload CNC Tooling Drawings
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.Message))
+                {
+                    <div class="alert alert-@(Model.IsError ? "danger" : "success") alert-dismissible fade show">
+                        <i class="bi bi-@(Model.IsError ? "exclamation-triangle" : "check-circle") me-2"></i>
+                        @Model.Message
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Select PDF Files</label>
+                        <div class="upload-zone border border-2 border-dashed rounded-3 p-5 text-center"
+                             id="dropZone">
+                            <i class="bi bi-file-earmark-pdf display-1 text-danger mb-3 d-block"></i>
+                            <p class="text-muted mb-2">Drag & drop PDF files here, or click to browse</p>
+                            <input type="file" name="files" multiple accept=".pdf"
+                                   class="form-control" id="fileInput" />
+                        </div>
+                    </div>
+
+                    <div id="fileList" class="mb-3" style="display:none;">
+                        <h6><i class="bi bi-list-check me-1"></i>Selected Files:</h6>
+                        <ul id="selectedFiles" class="list-group list-group-flush"></ul>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn" disabled>
+                            <i class="bi bi-cloud-upload me-2"></i>Upload Files
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        @if (Model.PendingFiles.Any())
+        {
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-hourglass-split me-2"></i>Pending Files (@Model.PendingFiles.Count)
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Uploaded</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var file in Model.PendingFiles)
+                                {
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                            @file.FileName
+                                        </td>
+                                        <td class="text-muted">@file.UploadedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td><span class="badge bg-primary">Pending</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer text-end">
+                    <a asp-page="/Processing/Index" class="btn btn-success">
+                        <i class="bi bi-cpu me-1"></i>Go to Processing
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Styles {
+<style>
+    .upload-zone {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-color: #dee2e6 !important;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+        border-color: #0d6efd !important;
+        background-color: #f0f7ff;
+    }
+</style>
+}
+
+@section Scripts {
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileList = document.getElementById('fileList');
+    const selectedFiles = document.getElementById('selectedFiles');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        fileInput.files = e.dataTransfer.files;
+        updateFileList();
+    });
+
+    fileInput.addEventListener('change', updateFileList);
+
+    function updateFileList() {
+        const files = fileInput.files;
+        if (files.length > 0) {
+            fileList.style.display = 'block';
+            selectedFiles.innerHTML = '';
+            for (let i = 0; i < files.length; i++) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `<span><i class="bi bi-file-earmark-pdf text-danger me-2"></i>${files[i].name}</span>
+                    <span class="badge bg-secondary">${(files[i].size / 1024).toFixed(1)} KB</span>`;
+                selectedFiles.appendChild(li);
+            }
+            uploadBtn.disabled = false;
+        } else {
+            fileList.style.display = 'none';
+            uploadBtn.disabled = true;
+        }
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', function() {
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+    });
+</script>
+}

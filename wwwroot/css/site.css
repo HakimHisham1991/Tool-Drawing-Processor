@@ -1,0 +1,148 @@
+/* CNC Tooling Drawing Processor - Custom Styles */
+
+:root {
+    --primary-dark: #1a1d23;
+    --card-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: #f5f6fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.nav-link {
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    border-radius: 0.375rem;
+    margin: 0 0.125rem;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    font-weight: 600;
+    border-bottom: none;
+}
+
+/* Tables */
+.table th {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Upload zone */
+.upload-zone {
+    border-color: #dee2e6 !important;
+    background-color: #fafbfc;
+}
+
+.upload-zone:hover,
+.upload-zone.drag-over {
+    border-color: #0d6efd !important;
+    background-color: #f0f7ff;
+}
+
+/* PDF Canvas */
+#pdfCanvas {
+    max-width: 100%;
+}
+
+#pdfContainer {
+    background-color: #4a4a4a;
+    overflow: auto;
+}
+
+/* Badges */
+.badge {
+    font-weight: 500;
+}
+
+/* Progress bars */
+.progress {
+    border-radius: 1rem;
+}
+
+/* Form controls */
+.form-control:focus,
+.form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+}
+
+/* Low confidence highlight */
+.border-danger.border-start {
+    background-color: rgba(220, 53, 69, 0.05);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+/* Confidence indicators */
+.confidence-high { color: #198754; }
+.confidence-medium { color: #ffc107; }
+.confidence-low { color: #dc3545; }
+
+/* Smooth transitions */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+/* Footer */
+footer {
+    font-size: 0.875rem;
+}
+
+/* Spinner animation for processing */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.processing-pulse {
+    animation: pulse 1.5s infinite;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}

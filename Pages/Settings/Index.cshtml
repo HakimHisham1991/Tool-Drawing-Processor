@@ -1,0 +1,194 @@
+@page
+@model ToolDrawingProcessor.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        @if (!string.IsNullOrEmpty(Model.Message))
+        {
+            <div class="alert alert-@(Model.IsError ? "danger" : "success") alert-dismissible fade show">
+                <i class="bi bi-@(Model.IsError ? "exclamation-triangle" : "check-circle") me-2"></i>
+                @Model.Message
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        <!-- AI Provider Configuration -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-robot me-2"></i>AI Provider Configuration
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="SaveSettings">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">AI Provider</label>
+                        <select name="provider" class="form-select" id="providerSelect">
+                            <option value="ollama" selected="@(Model.Settings.Provider == "ollama")">Ollama (Local)</option>
+                            <option value="openai" selected="@(Model.Settings.Provider == "openai")">OpenAI</option>
+                            <option value="anthropic" selected="@(Model.Settings.Provider == "anthropic")">Anthropic</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="ollamaSection">
+                        <label class="form-label fw-bold">Ollama Endpoint</label>
+                        <input type="text" name="ollamaEndpoint" class="form-control"
+                               value="@Model.Settings.OllamaEndpoint" />
+                        <div class="mt-2">
+                            <span id="ollamaStatusBadge" class="badge bg-secondary">
+                                <i class="bi bi-circle-fill me-1"></i>Checking...
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Model</label>
+                        <input type="text" name="model" class="form-control"
+                               value="@Model.Settings.Model"
+                               placeholder="e.g., llama3, gpt-4o-mini, claude-3-haiku-20240307" />
+                        @if (Model.OllamaModels.Any())
+                        {
+                            <small class="text-muted">
+                                Available Ollama models:
+                                @string.Join(", ", Model.OllamaModels)
+                            </small>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Timeout (seconds)</label>
+                        <input type="number" name="timeout" class="form-control"
+                               value="@Model.Settings.TimeoutSeconds" min="10" max="600" />
+                    </div>
+
+                    <hr />
+
+                    <h6 class="text-muted">Cloud API Keys (Optional Fallback)</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label">OpenAI API Key</label>
+                        <input type="password" name="openaiKey" class="form-control"
+                               value="@Model.Settings.OpenAIApiKey"
+                               placeholder="sk-..." />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Anthropic API Key</label>
+                        <input type="password" name="anthropicKey" class="form-control"
+                               value="@Model.Settings.AnthropicApiKey"
+                               placeholder="sk-ant-..." />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i>Save Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Learning Stats -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-brain me-2"></i>Learning Engine Statistics
+            </div>
+            <div class="card-body">
+                <div class="row g-3 text-center">
+                    <div class="col-md-3">
+                        <div class="fs-3 fw-bold text-primary">@Model.TotalExtractions</div>
+                        <small class="text-muted">Total Extractions</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fs-3 fw-bold text-success">@Model.CorrectPredictions</div>
+                        <small class="text-muted">Correct Predictions</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fs-3 fw-bold text-danger">@Model.Corrections</div>
+                        <small class="text-muted">Corrections Made</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fs-3 fw-bold text-warning">@Model.LearnedRules</div>
+                        <small class="text-muted">Learned Rules</small>
+                    </div>
+                </div>
+
+                @if (Model.PromptRules.Any())
+                {
+                    <hr />
+                    <h6>Active Prompt Rules</h6>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var rule in Model.PromptRules)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-start">
+                                <div class="small">@rule.RuleText</div>
+                                <span class="badge bg-primary rounded-pill">@rule.UsageCount uses</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <!-- Correction Patterns -->
+        @if (Model.CorrectionPatterns.Any())
+        {
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-graph-up me-2"></i>Correction Patterns
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Field</th>
+                                <th>Total Corrections</th>
+                                <th>Accuracy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pattern in Model.CorrectionPatterns)
+                            {
+                                var accuracy = pattern.Total > 0 ? (double)pattern.Correct / pattern.Total : 0;
+                                <tr>
+                                    <td>@pattern.Field</td>
+                                    <td>@pattern.Incorrect / @pattern.Total</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar @(accuracy >= 0.8 ? "bg-success" : accuracy >= 0.6 ? "bg-warning" : "bg-danger")"
+                                                 style="width: @(accuracy * 100)%">
+                                                @accuracy.ToString("P0")
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    async function checkOllama() {
+        const badge = document.getElementById('ollamaStatusBadge');
+        try {
+            const resp = await fetch('/api/ollama-status');
+            const data = await resp.json();
+            if (data.online) {
+                badge.className = 'badge bg-success';
+                badge.innerHTML = '<i class="bi bi-check-circle me-1"></i>Ollama Online';
+            } else {
+                badge.className = 'badge bg-danger';
+                badge.innerHTML = '<i class="bi bi-x-circle me-1"></i>Ollama Offline';
+            }
+        } catch {
+            badge.className = 'badge bg-danger';
+            badge.innerHTML = '<i class="bi bi-x-circle me-1"></i>Ollama Offline';
+        }
+    }
+    checkOllama();
+</script>
+}

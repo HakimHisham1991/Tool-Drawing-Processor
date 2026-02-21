@@ -1,0 +1,169 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-primary bg-gradient text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-white-50">Pending</h6>
+                        <h2 class="card-title mb-0">@Model.PendingCount</h2>
+                    </div>
+                    <i class="bi bi-hourglass-split fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-warning bg-gradient text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1">Processing</h6>
+                        <h2 class="card-title mb-0">@Model.ProcessingCount</h2>
+                    </div>
+                    <i class="bi bi-arrow-repeat fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-success bg-gradient text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-white-50">Processed</h6>
+                        <h2 class="card-title mb-0">@Model.ProcessedCount</h2>
+                    </div>
+                    <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-danger bg-gradient text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-white-50">Failed</h6>
+                        <h2 class="card-title mb-0">@Model.FailedCount</h2>
+                    </div>
+                    <i class="bi bi-x-circle fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-lightning-charge me-2"></i>Quick Actions
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a asp-page="/Upload/Index" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-cloud-upload me-2"></i>Upload PDF Drawings
+                    </a>
+                    <a asp-page="/Processing/Index" class="btn btn-outline-success btn-lg">
+                        <i class="bi bi-cpu me-2"></i>Process Queue
+                    </a>
+                    <a asp-page="/Database/Index" class="btn btn-outline-info btn-lg">
+                        <i class="bi bi-database me-2"></i>View Tool Database
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-brain me-2"></i>AI Learning Stats
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <tr>
+                        <td><i class="bi bi-journal-check text-primary me-2"></i>Total Corrections</td>
+                        <td class="text-end fw-bold">@Model.TotalCorrections</td>
+                    </tr>
+                    <tr>
+                        <td><i class="bi bi-bullseye text-success me-2"></i>AI Accuracy Rate</td>
+                        <td class="text-end fw-bold">@Model.AccuracyRate.ToString("P1")</td>
+                    </tr>
+                    <tr>
+                        <td><i class="bi bi-bookmark-star text-warning me-2"></i>Learned Rules</td>
+                        <td class="text-end fw-bold">@Model.LearnedRules</td>
+                    </tr>
+                    <tr>
+                        <td><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Total Files Processed</td>
+                        <td class="text-end fw-bold">@Model.TotalProcessed</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.RecentFiles.Any())
+{
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-dark text-white">
+            <i class="bi bi-clock-history me-2"></i>Recent Files
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>File Name</th>
+                            <th>Status</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var file in Model.RecentFiles)
+                        {
+                            <tr>
+                                <td>
+                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                    @file.FileName
+                                </td>
+                                <td>
+                                    @switch (file.Status)
+                                    {
+                                        case FileStatus.Pending:
+                                            <span class="badge bg-primary">Pending</span>
+                                            break;
+                                        case FileStatus.Processing:
+                                            <span class="badge bg-warning text-dark">Processing</span>
+                                            break;
+                                        case FileStatus.Processed:
+                                            <span class="badge bg-success">Processed</span>
+                                            break;
+                                        case FileStatus.Failed:
+                                            <span class="badge bg-danger">Failed</span>
+                                            break;
+                                    }
+                                </td>
+                                <td class="text-muted">@file.UploadedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    @if (file.Status == FileStatus.Processed)
+                                    {
+                                        <a asp-page="/Review/Index" asp-route-id="@file.Id"
+                                           class="btn btn-sm btn-outline-primary">Review</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
