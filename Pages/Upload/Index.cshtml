@@ -110,7 +110,9 @@
     const fileList = document.getElementById('fileList');
     const selectedFiles = document.getElementById('selectedFiles');
 
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => {
+        if (e.target !== fileInput) fileInput.click();
+    });
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();

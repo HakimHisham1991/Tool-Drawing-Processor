@@ -123,6 +123,38 @@ public class IndexModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostClearQueueAsync()
+    {
+        var files = await _db.UploadedFiles.ToListAsync();
+
+        foreach (var file in files)
+        {
+            var log = await _db.AIExtractionLogs.FirstOrDefaultAsync(l => l.UploadedFileId == file.Id);
+            if (log != null) _db.AIExtractionLogs.Remove(log);
+
+            var spec = await _db.ToolSpecifications.FirstOrDefaultAsync(s => s.UploadedFileId == file.Id);
+            if (spec != null) _db.ToolSpecifications.Remove(spec);
+
+            var feedbacks = _db.CorrectionFeedbacks.Where(f => f.UploadedFileId == file.Id);
+            _db.CorrectionFeedbacks.RemoveRange(feedbacks);
+
+            if (File.Exists(file.FilePath))
+            {
+                try { File.Delete(file.FilePath); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not delete file: {Path}", file.FilePath); }
+            }
+        }
+
+        _db.UploadedFiles.RemoveRange(files);
+        await _db.SaveChangesAsync();
+
+        Message = $"Cleared {files.Count} file(s) from the queue.";
+        IsError = false;
+
+        await LoadDataAsync();
+        return Page();
+    }
+
     private async Task LoadDataAsync()
     {
         Files = await _db.UploadedFiles

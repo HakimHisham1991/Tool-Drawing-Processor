@@ -60,11 +60,15 @@ public class AIProviderService
                 _ => throw new ArgumentException($"Unknown AI provider: {settings.Provider}")
             };
         }
-        catch (Exception ex) when (settings.Provider == "ollama")
+        catch (OllamaServerException ex) when (settings.Provider == "ollama")
         {
-            _logger.LogWarning(ex, "Ollama failed. Checking for cloud fallback...");
+            _logger.LogError(ex, "Ollama returned a server error");
+            throw new InvalidOperationException(ex.Message, ex);
+        }
+        catch (Exception ex) when (settings.Provider == "ollama" && ex is not OllamaServerException)
+        {
+            _logger.LogWarning(ex, "Ollama is unreachable. Checking for cloud fallback...");
 
-            // Try OpenAI fallback if configured
             if (!string.IsNullOrEmpty(settings.OpenAIApiKey))
             {
                 _logger.LogInformation("Falling back to OpenAI...");
@@ -80,7 +84,7 @@ public class AIProviderService
             else
             {
                 throw new InvalidOperationException(
-                    "AI provider is offline and no cloud fallback is configured. " +
+                    "Ollama is not reachable and no cloud fallback is configured. " +
                     "Please ensure Ollama is running or configure an API key in Settings.", ex);
             }
         }
@@ -146,16 +150,37 @@ PDF TEXT:
         var json = JsonSerializer.Serialize(requestBody);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        _logger.LogInformation("Calling Ollama at {Endpoint}/api/generate", settings.OllamaEndpoint);
+        _logger.LogInformation("Calling Ollama at {Endpoint}/api/generate with model {Model}", settings.OllamaEndpoint, settings.Model);
 
         var response = await client.PostAsync($"{settings.OllamaEndpoint}/api/generate", content);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Ollama returned {StatusCode}: {ErrorBody}", (int)response.StatusCode, errorBody);
+
+            var errorMessage = $"Ollama returned HTTP {(int)response.StatusCode}";
+            try
+            {
+                using var errorDoc = JsonDocument.Parse(errorBody);
+                if (errorDoc.RootElement.TryGetProperty("error", out var errorProp))
+                    errorMessage = $"Ollama error: {errorProp.GetString()}";
+            }
+            catch { /* use generic message */ }
+
+            throw new OllamaServerException(errorMessage);
+        }
 
         var responseJson = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(responseJson);
 
         return doc.RootElement.GetProperty("response").GetString()
                ?? throw new InvalidOperationException("Empty response from Ollama");
+    }
+
+    public class OllamaServerException : Exception
+    {
+        public OllamaServerException(string message) : base(message) { }
     }
 
     private async Task<string> CallOpenAIAsync(string prompt, AIProviderSettings settings)
